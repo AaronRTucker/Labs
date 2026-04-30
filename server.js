@@ -195,7 +195,9 @@ app.prepare().then(() => {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on('upgrade', (req, socket, head) => {
-    if (parse(req.url).pathname === '/pong-ws') {
+    const pathname = parse(req.url).pathname;
+    console.log('[upgrade]', pathname);
+    if (pathname === '/pong-ws') {
       wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
     } else {
       socket.destroy();
