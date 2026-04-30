@@ -1,6 +1,8 @@
 import Link from "next/link";
 
-const experiments: { title: string; desc: string; href: string }[] = [];
+const experiments: { title: string; desc: string; href: string }[] = [
+  { title: "Pong", desc: "Multiplayer pong — play a human opponent or an AI.", href: "/pong" },
+];
 
 export default function LabsHome() {
   return (

@@ -2,7 +2,7 @@ services:
   web:
     build: .
     command: >
-      sh -c "npm run dev"
+      sh -c "node server.js"
     ports:
       - "8083:3000"
     volumes:
