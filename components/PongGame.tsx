@@ -189,9 +189,11 @@ export default function PongGame() {
       }
     };
 
-    ws.onerror = () => setPhase({ name: "error" });
-    ws.onclose = () => {
+    ws.onerror = (e) => { console.error("WS error", e); setPhase({ name: "error" }); };
+    ws.onclose = (e) => {
+      console.log("WS closed", e.code, e.reason);
       if (wsRef.current === ws) wsRef.current = null;
+      setPhase((p) => p.name === "connecting" || p.name === "waiting" ? { name: "error" } : p);
     };
 
     return () => {

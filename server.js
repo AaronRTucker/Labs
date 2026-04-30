@@ -32,7 +32,7 @@ function createRoom(p1, p2) {
     ball: newBall(),
     left:  { y: H / 2 - PADDLE_H / 2, dir: 0, score: 0 },
     right: { y: H / 2 - PADDLE_H / 2, dir: 0, score: 0 },
-    status: 'playing', // 'playing' | 'scored' | 'done'
+    status: 'playing',
     winner: null,
   };
 
@@ -53,7 +53,6 @@ function createRoom(p1, p2) {
     broadcast({ type: 'state', state });
     pauseTimer = setTimeout(() => {
       state.ball = newBall();
-      // Serve toward the player who just lost the point
       state.ball.vx = loserSide === 'left' ? -5 : 5;
       state.status = 'playing';
       paused = false;
@@ -63,68 +62,54 @@ function createRoom(p1, p2) {
   function tick() {
     if (paused || state.status === 'done') return;
 
-    // AI: track ball with slight imperfection
     if (isAI) {
       const mid = state.right.y + PADDLE_H / 2;
       const diff = state.ball.y - mid;
       state.right.dir = Math.abs(diff) < 6 ? 0 : diff > 0 ? 1 : -1;
     }
 
-    // Move paddles
     state.left.y  = clamp(state.left.y  + state.left.dir  * PADDLE_SPEED, 0, H - PADDLE_H);
     state.right.y = clamp(state.right.y + state.right.dir * PADDLE_SPEED, 0, H - PADDLE_H);
 
-    // Move ball
     state.ball.x += state.ball.vx;
     state.ball.y += state.ball.vy;
 
-    // Top / bottom wall
     if (state.ball.y - BALL_R < 0)  { state.ball.y = BALL_R;      state.ball.vy =  Math.abs(state.ball.vy); }
     if (state.ball.y + BALL_R > H)  { state.ball.y = H - BALL_R;  state.ball.vy = -Math.abs(state.ball.vy); }
 
-    // Left paddle
     const lEdge = PADDLE_MARGIN + PADDLE_W;
-    if (state.ball.vx < 0 &&
-        state.ball.x - BALL_R <= lEdge &&
-        state.ball.y + BALL_R >= state.left.y &&
-        state.ball.y - BALL_R <= state.left.y + PADDLE_H) {
+    if (state.ball.vx < 0 && state.ball.x - BALL_R <= lEdge &&
+        state.ball.y + BALL_R >= state.left.y && state.ball.y - BALL_R <= state.left.y + PADDLE_H) {
       state.ball.x = lEdge + BALL_R;
       const rel = (state.ball.y - (state.left.y + PADDLE_H / 2)) / (PADDLE_H / 2);
       state.ball.vx =  Math.abs(state.ball.vx) * 1.05;
       state.ball.vy = rel * 6;
     }
 
-    // Right paddle
     const rEdge = W - PADDLE_MARGIN - PADDLE_W;
-    if (state.ball.vx > 0 &&
-        state.ball.x + BALL_R >= rEdge &&
-        state.ball.y + BALL_R >= state.right.y &&
-        state.ball.y - BALL_R <= state.right.y + PADDLE_H) {
+    if (state.ball.vx > 0 && state.ball.x + BALL_R >= rEdge &&
+        state.ball.y + BALL_R >= state.right.y && state.ball.y - BALL_R <= state.right.y + PADDLE_H) {
       state.ball.x = rEdge - BALL_R;
       const rel = (state.ball.y - (state.right.y + PADDLE_H / 2)) / (PADDLE_H / 2);
       state.ball.vx = -Math.abs(state.ball.vx) * 1.05;
       state.ball.vy = rel * 6;
     }
 
-    // Speed cap
     const spd = Math.hypot(state.ball.vx, state.ball.vy);
     if (spd > MAX_BALL_SPEED) {
       state.ball.vx = (state.ball.vx / spd) * MAX_BALL_SPEED;
       state.ball.vy = (state.ball.vy / spd) * MAX_BALL_SPEED;
     }
 
-    // Scoring
     if (state.ball.x + BALL_R < 0) {
       state.right.score++;
       if (state.right.score >= WIN_SCORE) { state.status = 'done'; state.winner = 'right'; broadcast({ type: 'state', state }); return; }
-      afterScore('left');
-      return;
+      afterScore('left'); return;
     }
     if (state.ball.x - BALL_R > W) {
       state.left.score++;
       if (state.left.score >= WIN_SCORE) { state.status = 'done'; state.winner = 'left'; broadcast({ type: 'state', state }); return; }
-      afterScore('right');
-      return;
+      afterScore('right'); return;
     }
 
     broadcast({ type: 'state', state });
@@ -157,7 +142,6 @@ function createRoom(p1, p2) {
 const waitingQueue = [];
 
 function matchPlayer(ws) {
-  // Try to find a live waiting player
   while (waitingQueue.length > 0) {
     const opponent = waitingQueue.shift();
     if (opponent.readyState === 1) {
@@ -167,11 +151,8 @@ function matchPlayer(ws) {
       return;
     }
   }
-
-  // No opponent yet — wait
   ws.send(JSON.stringify({ type: 'waiting' }));
   waitingQueue.push(ws);
-
   ws._aiTimer = setTimeout(() => {
     const idx = waitingQueue.indexOf(ws);
     if (idx !== -1 && ws.readyState === 1) {
@@ -184,14 +165,19 @@ function matchPlayer(ws) {
 
 // ── Server ────────────────────────────────────────────────────────────────────
 const dev = process.env.NODE_ENV !== 'production';
-const app = next({ dev });
+
+// Create the HTTP server first so we can pass it to Next.js
+const server = http.createServer();
+
+// Pass httpServer so Next.js wires up its own WebSocket handling (HMR) internally
+const app = next({ dev, httpServer: server });
 const handle = app.getRequestHandler();
 
-app.prepare().then(() => {
-  const server = http.createServer((req, res) => {
-    handle(req, res, parse(req.url, true));
-  });
+server.on('request', (req, res) => {
+  handle(req, res, parse(req.url, true));
+});
 
+app.prepare().then(() => {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on('upgrade', (req, socket, head) => {
@@ -200,10 +186,11 @@ app.prepare().then(() => {
     if (pathname === '/pong-ws') {
       wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
     }
-    // Leave other paths (e.g. /_next/webpack-hmr) for Next.js to handle
+    // Next.js handles /_next/webpack-hmr internally via httpServer
   });
 
   wss.on('connection', (ws) => {
+    console.log('[pong] client connected');
     ws._room = null;
     ws._aiTimer = null;
     matchPlayer(ws);
@@ -216,6 +203,7 @@ app.prepare().then(() => {
     });
 
     ws.on('close', () => {
+      console.log('[pong] client disconnected');
       if (ws._aiTimer) clearTimeout(ws._aiTimer);
       const idx = waitingQueue.indexOf(ws);
       if (idx !== -1) waitingQueue.splice(idx, 1);
