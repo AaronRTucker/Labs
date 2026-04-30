@@ -199,9 +199,8 @@ app.prepare().then(() => {
     console.log('[upgrade]', pathname);
     if (pathname === '/pong-ws') {
       wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
-    } else {
-      socket.destroy();
     }
+    // Leave other paths (e.g. /_next/webpack-hmr) for Next.js to handle
   });
 
   wss.on('connection', (ws) => {
