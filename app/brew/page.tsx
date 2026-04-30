@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import BrewClient from "@/components/BrewClient";
+import BrewGame from "@/components/BrewGame";
 
 export const metadata: Metadata = {
   title: "Brew — Labs",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function BrewPage() {
-  return <BrewClient />;
+  return <BrewGame />;
 }
