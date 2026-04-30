@@ -2,6 +2,7 @@ import Link from "next/link";
 
 const experiments: { title: string; desc: string; href: string }[] = [
   { title: "Pong", desc: "Multiplayer pong — play a human opponent or an AI.", href: "/pong" },
+  { title: "Brew", desc: "Mix colors in your kitchen and serve the right dish to each customer.", href: "/brew" },
 ];
 
 export default function LabsHome() {
