@@ -1,5 +1,5 @@
 services:
-  web:
+  labs-web:
     build: .
     command: >
       sh -c "node server.js"
