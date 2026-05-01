@@ -1,5 +1,6 @@
 services:
   labs-web:
+    container_name: scs-labs-web-1
     build: .
     command: >
       sh -c "node server.js"
